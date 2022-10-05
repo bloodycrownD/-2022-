@@ -14,7 +14,7 @@ public class ServerImpl implements Server {
     private ExecutorService pool ;
     private final int port;
     public ServerImpl() {
-        this.port = 1650;
+        this.port = 7980;
         try {
             this.serverSocket = new ServerSocket(this.port);
             //Runtime.getRuntime().availableProcessors() * 2 = 这是CPU核数*2

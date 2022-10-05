@@ -13,21 +13,20 @@ public class JumpFishing implements ForceJump {
     @Override
     public void forceJump(Socket socket) {
         try {
-            BufferedReader reader = new BufferedReader(new FileReader("src/main/resources/filterConf/fishingFilter/webPage/fishing.html"));
+            FileInputStream inputStream = new FileInputStream("src/main/resources/filterConf/fishingFilter/webPage/fishing.html");
             OutputStream outputStream = socket.getOutputStream();
             String responseLine = "HTTP/1.1 " + "200 OK" + "\r\n";
-            StringBuilder body = new StringBuilder();
-            String temp;
-            while ((temp = reader.readLine())!= null) {
-                body.append(temp);
-            }
+            byte[]content = new byte[65524];
+            int len = inputStream.read(content,0,65524);
+            String body = new String(content,0,len);
             String responseHeader = "Connection:close" + "\r\n" +
-                    "Content-Length:" + body.length() + "\r\n" +
+                    //这个长度我好像算的不准...
+//                    "Content-Length:" + body.length() + "\r\n" +
                     "Content-Type:" + "text/html" + "\r\n" +
                     "\r\n\r";
             String response = responseLine + responseHeader + body;
             outputStream.write(response.getBytes());
-            reader.close();
+            inputStream.close();
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {

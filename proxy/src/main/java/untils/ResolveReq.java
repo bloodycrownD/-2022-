@@ -83,9 +83,12 @@ public class ResolveReq {
         String uri = lines[0].split(" ")[1];
         String host = lines[1].replace("Host:","");
         //过滤
-        if (Filter.multiFunctionalFiler(uri,new SimpleWebFilter(socket),new SimpleFishingFilter(socket),new SimpleUserFilter(socket))) {
-            return;
-        }
+        if (Filter.multiFunctionalFiler(uri,
+                new SimpleWebFilter(socket),
+                new SimpleFishingFilter(socket),
+                new SimpleUserFilter(socket))
+        ) return;
+
         //判断是否有cache且未过期
         if (isCached(uri) && !isModified(msg, host)){
           doResponse(socket,loadFromCache(uri));
@@ -182,10 +185,10 @@ public class ResolveReq {
     private boolean isModified(String msg, String host){
         msg = SetResponseHeaders.setHeaders(msg,new setModified(getTime()));
         String respMsg = doRequest(msg, host);
-        boolean has = false;
+        boolean has = true;
         String[] respMsgLines = respMsg.split("\r\n");
-        if (!respMsgLines[0].split(" ")[2].contains("304")) {
-            has = true;
+        if (respMsgLines[0].contains("304")) {
+            has = false;
         }
         return has;
     }
@@ -196,18 +199,17 @@ public class ResolveReq {
      * @return 返回读出的内容
      */
     private String loadFromCache(String uri){
-        Properties prop = new Properties();
+
         try {
+            Properties prop = new Properties();
             prop.load(new FileReader("src/main/resources/cache/conf/cacheList.properties"));
             String fileName = (String) prop.get(uri);
-            BufferedReader reader = new BufferedReader(new FileReader("src/main/resources/cache/content/" + fileName));
-            String temp;
-            StringBuilder msg = new StringBuilder();
-            while ((temp = reader.readLine())!=null){
-                msg.append(temp);
-            }
-            return msg.toString();
+            InputStream inputStream =new FileInputStream("src/main/resources/cache/content/" + fileName + ".cache");
+            byte [] msg = new byte[65524];
+            int len = inputStream.read(msg,0,65524);
+            return new String(msg,0,len);
         } catch (IOException e) {
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
@@ -224,9 +226,9 @@ public class ResolveReq {
             prop.load(new FileReader("src/main/resources/cache/conf/cacheList.properties"));
             prop.setProperty(uri,fileName);
             prop.store(new FileWriter("src/main/resources/cache/conf/cacheList.properties"),"cache");
-            BufferedWriter writer = new BufferedWriter(new FileWriter("src/main/resources/cache/content/" + fileName));
-            writer.write(msg);
-            writer.close();
+            OutputStream outputStream = new FileOutputStream("src/main/resources/cache/content/" + fileName + ".cache");
+            outputStream.write(msg.getBytes());
+            outputStream.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

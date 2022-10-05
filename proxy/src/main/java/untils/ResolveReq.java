@@ -7,6 +7,8 @@ import filer.fishingFilter.impl.SimpleFishingFilter;
 import filer.userFiler.impl.SimpleUserFilter;
 import filer.webFilter.impl.SimpleWebFilter;
 import untils.constant.ReqMethod;
+import untils.getMsgHeader.GetHeaders;
+import untils.getMsgHeader.impl.GetLastModified;
 import untils.setMsgHeader.SetResponseHeaders;
 import untils.setMsgHeader.impl.setModified;
 
@@ -88,7 +90,8 @@ public class ResolveReq {
                 new SimpleFishingFilter(socket),
                 new SimpleUserFilter(socket))
         ) return;
-
+        //记录LastModified
+        recordLastModified(msg,uri);
         //判断是否有cache且未过期
         if (isCached(uri) && !isModified(msg, host)){
           doResponse(socket,loadFromCache(uri));
@@ -183,14 +186,24 @@ public class ResolveReq {
      * @return 更改了返回ture, 否则返回false
      */
     private boolean isModified(String msg, String host){
-        msg = SetResponseHeaders.setHeaders(msg,new setModified(getTime()));
-        String respMsg = doRequest(msg, host);
-        boolean has = true;
-        String[] respMsgLines = respMsg.split("\r\n");
-        if (respMsgLines[0].contains("304")) {
-            has = false;
+        String time = getTime();
+        Properties prop = new Properties();
+        try {
+            prop.load(new FileReader("src/main/resources/cache/conf/Last-Modified.properties"));
+            if (prop.get(host)!=null) {
+                time = prop.get(host).toString();
+            }
+            msg = SetResponseHeaders.setHeaders(msg,new setModified(time));
+            String respMsg = doRequest(msg, host);
+            boolean has = true;
+            String[] respMsgLines = respMsg.split("\r\n");
+            if (respMsgLines[0].contains("304")) {
+                has = false;
+            }
+            return has;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        return has;
     }
 
     /**
@@ -231,6 +244,24 @@ public class ResolveReq {
             outputStream.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 记录Last-Modified:，有就写dao配置文件，没有就不写
+     */
+    private void recordLastModified(String msg,String uri) {
+        GetHeaders getHeaders = new GetLastModified();
+        String header = getHeaders.getHeader(msg);
+        if (!header.isEmpty()) {
+            Properties prop = new Properties();
+            try {
+                prop.load(new FileReader("src/main/resources/cache/conf/Last-Modified.properties"));
+                prop.setProperty(uri,header);
+                prop.store(new FileWriter("src/main/resources/cache/conf/Last-Modified.properties"),"LastModified");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
